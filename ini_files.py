@@ -52,7 +52,7 @@ Verein={verein}
 
 def get_general_info_str_from_mannschaft_data(mannschaft: MannschaftData) -> str:
     return f"""[Allgemein]
-Name={mannschaft.general_data.name}
+Name={mannschaft.general_data.name.replace(":", "_").replace("/", "")}
 Spielklasse={mannschaft.general_data.spielklasse}
 Liga={mannschaft.general_data.liga}
 Bezirk={mannschaft.general_data.bezirk}
@@ -82,7 +82,7 @@ def get_general_info_str_from_input(name: str) -> str:
     anzahl_spieler = input("Anzahl Spieler: ")
 
     return f"""[Allgemein]
-Name={name}
+Name={name.replace(":", "_").replace("/", "")}
 Spielklasse={spielklasse}
 Liga={liga}
 Bezirk={bezirk}
