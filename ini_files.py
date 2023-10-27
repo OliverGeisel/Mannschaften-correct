@@ -153,8 +153,8 @@ def read_finished_mannschaften(file: Path) -> MannschaftData:
             logging.warning(f"Could not parse date {geburtsjahr_str} for player {name} {vorname}. Setting to None.")
             geburtsjahr = None
         players.append(PlayerData(name, vorname, letztes_spiel, platz_ziffer, spielernr, geburtsjahr,
-                                  altersklasse, passnummer, rangliste, verein
-                                  ))
+                                  altersklasse, passnummer, rangliste, verein)
+                       )
     return MannschaftData(file_name=file.stem, general_data=general_data, players=players)
 
 
@@ -192,5 +192,5 @@ def write_mannschaft_file_from_mannschaft_data(name: str, mannschaft: Mannschaft
             mannschaft.players.extend(platzhalter_player)
         elif sort:
             mannschaft.sort()
-        for j, player in enumerate(mannschaft.players):
-            f.write(get_player_str(j, player))
+        for number, player in enumerate(mannschaft.players):
+            f.write(get_player_str(number, player))

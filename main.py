@@ -9,24 +9,26 @@ from ini_files import get_general_info_str_from_input, get_player_str, platzhalt
 from mannschaft import MannschaftData, PlayerData, VereinsData, GeneralData
 
 
-def read_csv(name: str = "Mannschaften") -> pd.DataFrame:
+def read_csv(name: str = "Mannschaften", sep: str = ";") -> pd.DataFrame:
     """
     Read a csv file with the given name and return a pandas DataFrame
+    :param sep: separator of the csv file. Default is ";"
+    :type sep: str
     :param name: name of the csv file without the .csv ending
     :type name: str
     :return: pandas DataFrame with the data from the csv file
     :rtype: pd.DataFrame
     """
-    df = pd.read_csv(f'{name}.csv', sep=';', encoding='utf-8', header=0)
+    df = pd.read_csv(f'{name}.csv', sep=sep, encoding='utf-8', header=0)
     return df
 
 
-def load_mannschaften_csv() -> pd.DataFrame:
-    return read_csv()
+def load_mannschaften_csv(sep=";") -> pd.DataFrame:
+    return read_csv(sep=sep)
 
 
-def load_spieler_csv() -> pd.DataFrame:
-    return read_csv("Spieler")
+def load_spieler_csv(sep=";") -> pd.DataFrame:
+    return read_csv("Spieler", sep=sep)
 
 
 def write_csv(players: list[dict], name: str = "Mannschaften") -> None:
@@ -181,10 +183,12 @@ def import_single_mannschaft(vereins_name: str, mannschaft_name: str, num_min_pl
     write_mannschaft_file_from_mannschaft_data(mannschaft.file_name, mannschaft)
 
 
-def import_new_mannschaften(num_min_players: int = 10, min_placeholder: int = 0):
+def import_new_mannschaften(num_min_players: int = 10, min_placeholder: int = 0, encoding="windows-1252"):
     """
     Use this function to import all Mannschaften from the csv files. The csv files must be in the same folder as this
     script and must be named "Mannschaften.csv" and "Spieler.csv".
+    :param encoding: encoding of the csv files. Default is windows-1252
+    :type encoding: str
     :param min_placeholder: Minimum number of Platzhalter players. Default is 0
     :type min_placeholder: int
     :param num_min_players: Minimum number of players. If the number of players in the csv file is less than
@@ -202,12 +206,13 @@ def import_new_mannschaften(num_min_players: int = 10, min_placeholder: int = 0)
         verein = row["Verein"]
         spieler_mannschaft = row["Mannschaft"]
         for m_index, m_row in mannschaften_csv.iterrows():
-            if m_row["Verein"] == verein and m_row["Mannschaft"] == spieler_mannschaft:
+            mannschaft = m_row["Mannschaft"]
+            if m_row["Verein"] == verein and mannschaft == spieler_mannschaft:
                 if verein not in vereins_map:
                     vereins_map[verein] = dict()
-                if m_row["Mannschaft"] not in vereins_map[verein]:
+                if mannschaft not in vereins_map[verein]:
                     general_data = GeneralData(
-                        "" if pd.isna(m_row["Mannschaft"]) else m_row["Mannschaft"],
+                        "" if pd.isna(mannschaft) else mannschaft,
                         "" if pd.isna(m_row["Spielklasse"]) else m_row["Spielklasse"],
                         "" if pd.isna(m_row["Liga"]) else m_row["Liga"],
                         "" if pd.isna(m_row["Bezirk"]) else m_row["Bezirk"],
@@ -219,13 +224,24 @@ def import_new_mannschaften(num_min_players: int = 10, min_placeholder: int = 0)
                         "" if pd.isna(m_row["Verein"]) else m_row["Verein"],
                         "" if pd.isna(m_row["Verein Kurz"]) else m_row["Verein Kurz"],
                     )
-                    vereins_map[verein][m_row["Mannschaft"]] = (general_data, list())
+                    vereins_map[verein][mannschaft] = (general_data, list())
                 try:
-                    vereins_map[verein][m_row["Mannschaft"]][1].append(PlayerData.create_player_from_csv(row))
-                except ValueError:
+                    vereins_map[verein][mannschaft][1].append(PlayerData.create_player_from_csv(row))
+                except ValueError as e:
+                    logging.warning(f"Spieler in {mannschaft} nicht verarbeitbar. War in Zeile {index}", )
                     continue
                 break
     # create internal data structure
+    map_to_internal_representation(vereine, vereins_map, min_placeholder, num_min_players)
+    # write files
+    for verein in vereine:
+        for mannschaft in verein.mannschaften:
+            write_mannschaft_file_from_mannschaft_data(mannschaft.file_name, mannschaft, encoding=encoding)
+
+
+def map_to_internal_representation(vereine: list[VereinsData],
+                                   vereins_map: dict[str, dict[str, tuple[GeneralData, [list[PlayerData]]]]],
+                                   min_placeholder: int, num_min_players: int):
     for vereins_name, vereine_raw in vereins_map.items():
         mannschaften_list = list()
         for mannschaft_name, mannschaften_raw in vereine_raw.items():
@@ -245,10 +261,6 @@ def import_new_mannschaften(num_min_players: int = 10, min_placeholder: int = 0)
             mannschaften_list.append(MannschaftData(correct_name, general_data, players))
         vereinsdata = VereinsData(vereins_name, mannschaften_list)
         vereine.append(vereinsdata)
-    # write files
-    for verein in vereine:
-        for mannschaft in verein.mannschaften:
-            write_mannschaft_file_from_mannschaft_data(mannschaft.file_name, mannschaft, encoding="windows-1252")
 
 
 if __name__ == '__main__':
