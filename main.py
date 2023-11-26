@@ -264,8 +264,50 @@ def map_to_internal_representation(vereine: list[VereinsData],
         vereine.append(vereinsdata)
 
 
+def print_options(with_input: bool = False) -> str:
+    print("""
+    1 - Neue Mannschaft erstellen (als Input)
+    2 - Mannschaft neu einlesen und korrigieren
+    3 - Mannschaften aus CSV einlesen (mit Platzhaltern)
+    4 - Alle Mannschaften korrigieren (mit Platzhaltern)
+    end - Programm beenden""")
+    if with_input:
+        return input("Wahl: ")
+    return None
+
+
+def cli_handle():
+    print("""Mannschaften-KorrekturSystem (MKS)
+====================================""")
+    while (wahl := print_options(True)) not in ["1", "2", "3", "4", "end"]:
+        logging.warning("Ungültige Eingabe. Bitte Zahl eingeben.")
+    match wahl:
+        case "1":
+            create_new_mannschaft()
+        case "2":
+            rewrite_mannschaft()
+        case "3":
+            while (((placeholder := input("Minimale Anzahl Platzhalter (default=3): ")).isdigit()
+                    and int(placeholder) < 0)
+                   or placeholder != ""):
+                logging.warning("Ungültige Eingabe. Bitte Zahl eingeben.")
+            placeholder = int(placeholder) if placeholder != "" else 3
+            import_new_mannschaften(placeholder)
+        case "4":
+            while (name_after_team := input("Datei soll wie Mannschaft heißen? (default=true): ")) not in ["", "true",
+                                                                                                           "false"]:
+                logging.warning("Ungültige Eingabe. Bitte true oder false eingeben.")
+            name_after_team = name_after_team == "" or name_after_team == "true"
+            mannschaften = read_folder_mannschaften("C:\\Control Center Kegeln\\Einstellungen\\Mannschaften - Kopie",
+                                                    True)
+            for mannschaft in mannschaften:
+                if name_after_team:
+                    mannschaft.file_name = mannschaft.general_data.name
+                write_mannschaft_file_from_mannschaft_data(mannschaft.file_name, mannschaft)
+            import_new_mannschaften(min_placeholder=3)
+        case "end":
+            return
+
+
 if __name__ == '__main__':
-    # create_new_mannschaft()
-    # rewrite_mannschaft()
-    import_new_mannschaften(min_placeholder=3)
-    # mannschaften = read_folder_mannschaften("C:\\Control Center Kegeln\\Einstellungen\\Mannschaften - Kopie", True)
+    cli_handle()

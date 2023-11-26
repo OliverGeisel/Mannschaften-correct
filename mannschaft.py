@@ -200,6 +200,10 @@ class MannschaftData:
     def players(self, value):
         self._players = value
 
+    @file_name.setter
+    def file_name(self, value):
+        self._file_name = value
+
 
 class VereinsData:
 
