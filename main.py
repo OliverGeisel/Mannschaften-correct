@@ -249,14 +249,15 @@ def map_to_internal_representation(vereine: list[VereinsData],
             correct_name = get_final_name_for_mannschaften_file(vereins_name, mannschaft_name)
             general_data = gen_data
             general_data.anzahl_spieler = max(len(players), num_min_players)
+            num_platzhalter = 0
             if len(players) < num_min_players:
                 num_platzhalter = 0
                 for i in range(1, num_min_players - len(players) + 1):
                     players.append(PlayerData.create_platzhalter(i))
                     num_platzhalter += 1
-                if num_platzhalter < min_placeholder:
-                    for i in range(num_platzhalter + 1, min_placeholder + 1):
-                        players.append(PlayerData.create_platzhalter(i))
+            if num_platzhalter < min_placeholder:
+                for i in range(num_platzhalter + 1, min_placeholder + 1):
+                    players.append(PlayerData.create_platzhalter(i))
             general_data.name = correct_name
             mannschaften_list.append(MannschaftData(correct_name, general_data, players))
         vereinsdata = VereinsData(vereins_name, mannschaften_list)
