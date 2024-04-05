@@ -8,7 +8,7 @@ from exceptions import FileIncompleteError
 from mannschaft import PlayerData, MannschaftData, GeneralData
 
 
-def get_player_str(number: int, player: PlayerData) -> str:
+def get_player_str(number: int, player: PlayerData, date_format: str = "%d/%m/%Y") -> str:
     if not player.valid:
         raise ValueError("Player is not valid")
     return f"""[Spieler {number}]
@@ -17,7 +17,7 @@ Vorname={player.vorname}
 Letztes Spiel={player.letztes_spiel}
 Platz-Ziffer={player.platz_ziffer}
 Spielernr.={player.spielernr}
-Geb.-Jahr={player.geburtsjahr.strftime("%d/%m/%Y") if player.geburtsjahr is not None else ""}
+Geb.-Jahr={player.geburtsjahr.strftime(date_format) if player.geburtsjahr is not None else ""}
 Altersklasse={player.altersklasse}
 Pass-Nr.={player.passnummer}
 Rangliste={player.rangliste}
@@ -159,9 +159,12 @@ def read_finished_mannschaften(file: Path) -> MannschaftData:
 
 
 def write_mannschaft_file_from_mannschaft_data(name: str, mannschaft: MannschaftData, sort: bool = True,
-                                               platzhalter_am_ende: bool = True, encoding="utf-8") -> None:
+                                               platzhalter_am_ende: bool = True, encoding="utf-8",
+                                               date_format: str = "%m/%y") -> None:
     """
     Write a .ini file with the given name and the given MannschaftData object
+    :param date_format:  format of the date. Default is mm/yy
+    :type date_format:  str
     :param name: Name of the .ini file
     :type name: str
     :param mannschaft: complete MannschaftData object
@@ -193,4 +196,4 @@ def write_mannschaft_file_from_mannschaft_data(name: str, mannschaft: Mannschaft
         elif sort:
             mannschaft.sort()
         for number, player in enumerate(mannschaft.players):
-            f.write(get_player_str(number, player))
+            f.write(get_player_str(number, player, date_format))

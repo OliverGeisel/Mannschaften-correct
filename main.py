@@ -80,7 +80,7 @@ def read_folder_mannschaften(folder_name: str, print_teams: bool = False) -> lis
 
 
 def write_mannschaft_file_input(file_name: str, csv_name: str = "Mannschaften", anzahl_spieler: int = 10,
-                                sort: bool = True, encoding="utf-8") -> None:
+                                sort: bool = True, encoding="utf-8", date_format="%m/%y") -> None:
     if file_name.endswith(".ini"):
         file_name = file_name[:-4]
     if not Path(f"out").exists():
@@ -90,7 +90,7 @@ def write_mannschaft_file_input(file_name: str, csv_name: str = "Mannschaften", 
     with open(f"out/{file_name}.ini", "w", encoding=encoding) as f:
         f.write(get_general_info_str_from_input(file_name))
         i = 0
-        players = []
+        players = list()
         for index, row in read_csv(csv_name).iterrows():
             if i >= anzahl_spieler:
                 break
@@ -106,7 +106,7 @@ def write_mannschaft_file_input(file_name: str, csv_name: str = "Mannschaften", 
             players = sorted(players, key=lambda x: x.name)
         for j, player in enumerate(players):
             try:
-                f.write(get_player_str(j, player))
+                f.write(get_player_str(j, player, date_format))
             except ValueError:
                 logging.warning(
                     f"Could not write player {player.name} {player.vorname} {player.geburtsjahr}. Date format "
@@ -292,7 +292,7 @@ def cli_handle():
                    or placeholder != ""):
                 logging.warning("Ungültige Eingabe. Bitte Zahl eingeben.")
             placeholder = int(placeholder) if placeholder != "" else 3
-            import_new_mannschaften(placeholder)
+            import_new_mannschaften(min_placeholder=placeholder)
         case "4":
             while (name_after_team := input("Datei soll wie Mannschaft heißen? (default=true): ")) not in ["", "true",
                                                                                                            "false"]:
