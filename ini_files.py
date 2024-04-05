@@ -21,7 +21,7 @@ Geb.-Jahr={player.geburtsjahr.strftime(date_format) if player.geburtsjahr is not
 Altersklasse={player.altersklasse}
 Pass-Nr.={player.passnummer}
 Rangliste={player.rangliste}
-Verein={player.verein}
+Verein={player.verein if player.verein_show == "" else player.verein_show}
 """
 
 
@@ -35,7 +35,7 @@ def get_player_str_from_csv(number: int, data: pd.Series) -> str:
     geburtsjahr = date_parsing_from_word_str(date_str)
     passnummer = data["Passnummer"]
     altersklasse = data["Altersklasse"]
-    verein = data["Verein"]
+    verein = data["Verein"] if data["Verein_angezeigt"] == "" else data["Verein_angezeigt"]
     return f"""[Spieler {number}]
 Name={name}
 Vorname={vorname}

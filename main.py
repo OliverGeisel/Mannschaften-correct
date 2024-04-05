@@ -289,7 +289,7 @@ def cli_handle():
         case "3":
             while (((placeholder := input("Minimale Anzahl Platzhalter (default=3): ")).isdigit()
                     and int(placeholder) < 0)
-                   or placeholder != ""):
+                   or placeholder == ""):
                 logging.warning("Ungültige Eingabe. Bitte Zahl eingeben.")
             placeholder = int(placeholder) if placeholder != "" else 3
             import_new_mannschaften(min_placeholder=placeholder)

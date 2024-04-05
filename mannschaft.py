@@ -7,9 +7,12 @@ from date_parsing import date_parsing_from_word_str
 
 
 class PlayerData:
+    """
+    Representation of a Player in a Mannschaft.
+    """
 
     def __init__(self, name: str, vorname: str, letztes_spiel: str, platz_ziffer: str, spielernr: str,
-                 geburtsjahr: date, altersklasse: str, passnummer: str, rangliste: str, verein: str):
+                 geburtsjahr: date, altersklasse: str, passnummer: str, rangliste: str, verein: str, verein_show:str=""):
         self.__name = name.strip()
         self.__vorname = vorname.strip()
         self.__letztes_spiel = letztes_spiel.strip()
@@ -20,6 +23,7 @@ class PlayerData:
         self.__passnummer = passnummer.strip()
         self.__rangliste = rangliste.strip()
         self.__verein = verein.strip()
+        self.__verein_show = verein_show.strip()
 
     @staticmethod
     def create_player_from_csv(row: pd.Series) -> 'PlayerData':
@@ -37,7 +41,8 @@ class PlayerData:
                 passnummer="" if not isinstance(row["Passnummer"], str) and pd.isna(row["Passnummer"]) else row[
                     "Passnummer"],
                 rangliste="",
-                verein=row["Verein"]
+                verein=row["Verein"],
+                verein_show= row["Verein_angezeigt"]
             )
         except ValueError:
             raise ValueError(f"Could not parse date {row['Geburtsdatum']} for player {row['Name']} {row['Vorname']}")
@@ -48,7 +53,7 @@ class PlayerData:
         return PlayerData(player_dict["Name"], player_dict["Vorname"], player_dict["Letztes Spiel"],
                           player_dict["Platz-Ziffer"], player_dict["Spielernr."], player_dict["Geburtsjahr"],
                           player_dict["Altersklasse"], player_dict["Passnummer"], player_dict["Rangliste"],
-                          player_dict["Verein"])
+                          player_dict["Verein"], player_dict["Verein_angezeigt"])
 
     @staticmethod
     def create_platzhalter(number: int = 0):
@@ -93,6 +98,12 @@ class PlayerData:
     @property
     def verein(self) -> str:
         return self.__verein
+    
+    @property
+    def verein_show(self) -> str:
+        return self.__verein_show
+
+
 
     def is_platzhalter(self):
         return re.match(r"Vorname \d+", self.vorname) and re.match(r"Name \d+", self.name)
@@ -127,6 +138,9 @@ class PlayerData:
 
 
 class GeneralData:
+    """
+    General information to a 'Mannschaft'.  
+    """
 
     def __init__(self, name: str, spielklasse: str, liga: str, bezirk: str, spielfuehrer: str, betreuer: str,
                  vereins_nummer: str, lv_nummer: str, anzahl_spieler: int, verein: str, verein_kurz: str):
@@ -157,6 +171,9 @@ Verein kurz={self.verein_kurz}"""
 
 
 class MannschaftData:
+    """
+    The complete informations to the mannschaft. Including GeneralData and all players
+    """
 
     def __init__(self, file_name: str, general_data: GeneralData = None, players: list[PlayerData] = None):
         self._file_name = file_name
