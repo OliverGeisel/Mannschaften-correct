@@ -1,27 +1,23 @@
 import logging
+import pathlib
 from pathlib import Path
 
 import pandas as pd
 
+from csv_files import read_csv, write_csv_from_mannschaft_data, write_csv_with_all_mannschaften
 from exceptions import FileIncompleteError
 from ini_files import get_general_info_str_from_input, get_player_str, platzhalter_player_str, \
     read_finished_mannschaften, write_mannschaft_file_from_mannschaft_data
 from mannschaft import MannschaftData, PlayerData, VereinsData, GeneralData
 
+NAME_DER_MANNSCHAFT_ = "Name der Mannschaft: "
 
-def read_csv(name: str = "Mannschaften", sep: str = ";") -> pd.DataFrame:
-    """
-    Read a csv file with the given name and return a pandas DataFrame
-    :param sep: separator of the csv file. Default is ";"
-    :type sep: str
-    :param name: name of the csv file without the .csv ending
-    :type name: str
-    :return: pandas DataFrame with the data from the csv file
-    :rtype: pd.DataFrame
-    """
-    df = pd.read_csv(f'{name}.csv', sep=sep, encoding='utf-8', header=0)
-    return df
+GREEN = "\033[92m"
+RED = "\033[91m"
+BLUE = "\033[94m"
+ENDC = "\033[0m"
 
+DEFAULT_DATA_PATH = r"C:\Control Center Kegeln\Einstellungen\Mannschaften"
 
 def load_mannschaften_csv(sep=";") -> pd.DataFrame:
     return read_csv(sep=sep)
@@ -29,29 +25,6 @@ def load_mannschaften_csv(sep=";") -> pd.DataFrame:
 
 def load_spieler_csv(sep=";") -> pd.DataFrame:
     return read_csv("Spieler", sep=sep)
-
-
-def write_csv(players: list[dict], name: str = "Mannschaften") -> None:
-    """
-    Write a csv file with the given name and the given data
-    :param players: players to write to the csv file
-    :type players:  list[dict]
-    :param name: name of the csv file without the .csv ending
-    :type name: str
-    :return: None
-    :rtype: None
-    """
-    df = pd.DataFrame(players)
-    if not Path("out").exists():
-        Path("out").mkdir()
-    df.to_csv(f'out/{name}.csv', sep=';', encoding='utf-8', index=False)
-
-
-def write_csv_from_mannschaft_data(mannschaft: MannschaftData, name: str = "Mannschaften") -> None:
-    data = [{"Nachname": player.name, "Vorname": player.vorname, "Geburtsdatum": player.get_geburtsjahr_str(),
-             "Passnummer": player.passnummer, "Altersklasse": player.altersklasse, "Verein": player.verein}
-            for player in mannschaft.players]
-    write_csv(data, name)
 
 
 def read_folder_mannschaften(folder_name: str, print_teams: bool = False) -> list[MannschaftData]:
@@ -64,14 +37,18 @@ def read_folder_mannschaften(folder_name: str, print_teams: bool = False) -> lis
     :type folder_name: str
     :return: list of MannschaftData objects
     :rtype: list[MannschaftData]
+    :raises FileNotFoundError: if the folder does not exist
     """
     folder = Path(folder_name)
+    if not folder.exists():
+        logging.error(f"Folder {folder} does not exist")
+        raise FileNotFoundError(f"Folder {folder} does not exist")
     files = [file for file in folder.iterdir() if file.suffix == ".ini"]
     mannschaften_list = []
     for file in files:
         try:
             mannschaften_list.append(read_finished_mannschaften(file))
-        except FileIncompleteError or ValueError:
+        except (FileIncompleteError, ValueError):
             continue
     if print_teams:
         for mannschaft in mannschaften_list:
@@ -79,42 +56,71 @@ def read_folder_mannschaften(folder_name: str, print_teams: bool = False) -> lis
     return mannschaften_list
 
 
-def write_mannschaft_file_input(file_name: str, csv_name: str = "Mannschaften", anzahl_spieler: int = 10,
+def write_mannschaft_file_input(file_name: str, csv_name: str = "Mannschaften",
                                 sort: bool = True, encoding="utf-8", date_format="%m/%y") -> None:
     if file_name.endswith(".ini"):
         file_name = file_name[:-4]
-    if not Path(f"out").exists():
-        Path(f"out").mkdir()
+    if not Path("out").exists():
+        Path("out").mkdir()
     if Path(f"out/{file_name}.ini").exists():
-        logging.warning(f"File {file_name}.ini already exists. Overwriting.")
-    with open(f"out/{file_name}.ini", "w", encoding=encoding) as f:
-        f.write(get_general_info_str_from_input(file_name))
-        i = 0
-        players = list()
-        for index, row in read_csv(csv_name).iterrows():
-            if i >= anzahl_spieler:
-                break
-            if pd.isna(row).max():
-                continue
-            try:
-                players.append(PlayerData.create_player_from_csv(row))
-            except ValueError:
-                continue
-            i += 1
-        # sort and complete with platzhalter players
-        if sort:
-            players = sorted(players, key=lambda x: x.name)
-        for j, player in enumerate(players):
-            try:
-                f.write(get_player_str(j, player, date_format))
-            except ValueError:
-                logging.warning(
-                    f"Could not write player {player.name} {player.vorname} {player.geburtsjahr}. Date format "
-                    f"is unknown \nSkipping player.")
-                continue
-        if i < anzahl_spieler:
-            for j in range(i, anzahl_spieler):
-                f.write(platzhalter_player_str(j))
+        logging.warning(f"File {file_name}.ini already exists. Overwriting?")
+        response = input("Will you continue? Otherwise press 'n' and enter\n")
+        if response.lower() == "n":
+            return
+    with open(f"out/{file_name}.ini", "w", encoding=encoding) as file:
+        general_info = get_general_info_str_from_input(file_name)
+        anzahl_spieler = int(general_info.splitlines()[9].split("=")[1])
+        file.write(general_info)
+        players: list = []
+        if not pathlib.Path(f"{csv_name}.csv").exists():
+            logging.error(f"File {csv_name}.csv does not exist. All players will be Platzhalter players")
+        else:
+            players = iter_csv_player(anzahl_spieler, csv_name, date_format, file, sort)
+        num_players = len(players)
+        if num_players < anzahl_spieler:  # add Platzhalter players
+            n = 1
+            for _ in range(num_players, anzahl_spieler):
+                file.write(platzhalter_player_str(n))
+                n += 1
+
+
+def iter_csv_player(anzahl_spieler, csv_name, date_format, file, sort) -> list[PlayerData]:
+    """
+    Iterate through the csv file and write the players to the file
+    :param anzahl_spieler: number of players to write
+    :type anzahl_spieler: int
+    :param csv_name: name of the csv file
+    :type csv_name: str
+    :param date_format: format of the date
+    :type date_format: str
+    :param file: file object to write the players to
+    :type file: file
+    :param sort: sort the players by their name
+    :type sort: bool
+    :return: players written
+    """
+    back = []
+    for index, row in read_csv(csv_name).iterrows():
+        if len(back) >= anzahl_spieler:
+            break
+        if pd.isna(row).max():  # check if there are any NaN values in the row
+            continue
+        try:
+            back.append(PlayerData.create_player_from_csv(row))
+        except ValueError:
+            continue
+    # sort and complete with platzhalter players
+    if sort:
+        back = sorted(back, key=lambda x: x.name)
+    for j, player in enumerate(back):
+        try:
+            file.write(get_player_str(j, player, date_format))
+        except ValueError:
+            logging.warning(
+                f"Could not write player {player.name} {player.vorname} {player.geburtsjahr}. Date format "
+                f"is unknown \nSkipping player.")
+            continue
+    return back
 
 
 def rewrite_mannschaft_file(name: str, new_name: str = None) -> None:
@@ -128,19 +134,29 @@ def rewrite_mannschaft_file(name: str, new_name: str = None) -> None:
     :return: None
     :rtype: None
     """
+    if name.endswith(".ini"):
+        name = name[:-4]
+    if not Path(f"{name}.ini").exists():
+        logging.error(f"File {name}.ini does not exist")
+        raise FileNotFoundError(f"File {name}.ini does not exist")
     mannschaft = read_finished_mannschaften(Path(f"{name}.ini"))
     new_name = name if new_name is None else new_name
     write_mannschaft_file_from_mannschaft_data(new_name, mannschaft, encoding="windows-1252")
 
 
 def create_new_mannschaft():
-    name = input("Name der Mannschaft: ")
-    write_mannschaft_file_input(name, encoding="windows-1252")
+    name = input(NAME_DER_MANNSCHAFT_)
+    write_mannschaft_file_input(name, "Spieler", encoding="windows-1252")
 
 
 def rewrite_mannschaft():
-    name = input("Name der Mannschaft: ")
-    new_name = input("Neuer Name: ")
+    """
+    Rewrite a Mannschaft file with a new name
+    """
+    name = input(NAME_DER_MANNSCHAFT_)
+    new_name = input("Neuer Name (Leer == alter name): ")
+    if new_name == "":
+        new_name = name
     rewrite_mannschaft_file(name, new_name)
 
 
@@ -183,7 +199,7 @@ def import_single_mannschaft(vereins_name: str, mannschaft_name: str, num_min_pl
     write_mannschaft_file_from_mannschaft_data(mannschaft.file_name, mannschaft)
 
 
-def import_new_mannschaften(num_min_players: int = 10, min_placeholder: int = 0, encoding="windows-1252"):
+def import_new_mannschaften(num_min_players: int = 10, min_placeholder: int = 0, encoding="windows-1252") -> None:
     """
     Use this function to import all Mannschaften from the csv files. The csv files must be in the same folder as this
     script and must be named "Mannschaften.csv" and "Spieler.csv".
@@ -194,17 +210,15 @@ def import_new_mannschaften(num_min_players: int = 10, min_placeholder: int = 0,
     :param num_min_players: Minimum number of players. If the number of players in the csv file is less than
     this number, Platzhalter players will be added. Default is 10
     :type num_min_players: int
-    :return: None
-    :rtype:  None
     """
     spieler_csv = load_spieler_csv()
     mannschaften_csv = load_mannschaften_csv()
     vereine: list[VereinsData] = list()
     vereins_map: dict[str, dict[str, tuple[GeneralData, [list[PlayerData]]]]] = dict()
 
-    for index, row in spieler_csv.iterrows():
-        verein = row["Verein"]
-        spieler_mannschaft = row["Mannschaft"]
+    for index, s_row in spieler_csv.iterrows():
+        verein = s_row["Verein"]
+        spieler_mannschaft = s_row["Mannschaft"]
         for m_index, m_row in mannschaften_csv.iterrows():
             mannschaft = m_row["Mannschaft"]
             if m_row["Verein"] == verein and mannschaft == spieler_mannschaft:
@@ -226,8 +240,8 @@ def import_new_mannschaften(num_min_players: int = 10, min_placeholder: int = 0,
                     )
                     vereins_map[verein][mannschaft] = (general_data, list())
                 try:
-                    vereins_map[verein][mannschaft][1].append(PlayerData.create_player_from_csv(row))
-                except ValueError as e:
+                    vereins_map[verein][mannschaft][1].append(PlayerData.create_player_from_csv(s_row))
+                except ValueError as _:
                     logging.warning(f"Spieler in {mannschaft} nicht verarbeitbar. War in Zeile {index}", )
                     continue
                 break
@@ -242,6 +256,19 @@ def import_new_mannschaften(num_min_players: int = 10, min_placeholder: int = 0,
 def map_to_internal_representation(vereine: list[VereinsData],
                                    vereins_map: dict[str, dict[str, tuple[GeneralData, [list[PlayerData]]]]],
                                    min_placeholder: int, num_min_players: int):
+    """
+    Map the data from the csv files to the internal data structure
+    :param vereine: list of VereinsData objects
+    :type vereine: list[VereinsData]
+    :param vereins_map: dictionary with the VereinsData objects
+    :type vereins_map: dict[str, dict[str, tuple[GeneralData, [list[PlayerData]]]]]
+    :param min_placeholder: Minimum number of Platzhalter players. Default is 0
+    :type min_placeholder: int
+    :param num_min_players: Minimum number of players. If the number of players in the csv file is less than
+    this number, Platzhalter players will be added. Default is 10
+    :type num_min_players: int
+    :return: None
+    """
     for vereins_name, vereine_raw in vereins_map.items():
         mannschaften_list = list()
         for mannschaft_name, mannschaften_raw in vereine_raw.items():
@@ -265,48 +292,94 @@ def map_to_internal_representation(vereine: list[VereinsData],
 
 
 def print_options(with_input: bool = False) -> str:
-    print("""
-    1 - Neue Mannschaft erstellen (als Input)
+    print(f"""    1 - Neue Mannschaft erstellen (als Input mit Spieler.csv)
     2 - Mannschaft neu einlesen und korrigieren
     3 - Mannschaften aus CSV einlesen (mit Platzhaltern)
     4 - Alle Mannschaften korrigieren (mit Platzhaltern)
+    - {RED}Export{ENDC} -
+    5 - Exportiere eine Mannschaft als CSV
+    6 - Exportiere alle Mannschaften als CSV
+    
     end - Programm beenden""")
     if with_input:
         return input("Wahl: ")
-    return None
+    return ""
+
+
+def export_single_mannschaft(file_name: str = None):
+    if file_name is None:
+        file_name = input("Name der Mannschaft: ")
+        if file_name.endswith(".ini"):
+            file_name = file_name[:-4]
+    directory = Path(DEFAULT_DATA_PATH)
+    if not directory.joinpath("name").exists():
+        logging.error(f"File {file_name}.ini does not exist")
+        return
+    export_name = input("Name der Exportdatei: ")
+    if export_name in ["", " ", "\n", "\t", ":", "/"]:
+        export_name = file_name
+    data = read_finished_mannschaften(directory.joinpath(file_name))
+    write_csv_from_mannschaft_data(data, export_name)
+
+
+def export_all_mannschaften():
+    try:
+        mannschaften = read_folder_mannschaften(DEFAULT_DATA_PATH, False)
+        write_csv_with_all_mannschaften(mannschaften)
+    except FileNotFoundError:
+        logging.error("Abbruch. Keine Mannschaften gefunden.")
 
 
 def cli_handle():
-    print("""Mannschaften-KorrekturSystem (MKS)
-====================================""")
-    while (wahl := print_options(True)) not in ["1", "2", "3", "4", "end"]:
+    print(f"""Mannschaften-KorrekturSystem ({BLUE}MKS{ENDC})
+{GREEN}===================================={ENDC}""")
+    while True:
+        while (wahl := print_options(True)) not in ["1", "2", "3", "4", "5", "6", "end"]:
+            logging.warning("Ungültige Eingabe. Bitte Zahl eingeben.")
+        match wahl:
+            case "1":
+                create_new_mannschaft()
+            case "2":
+                rewrite_mannschaft()
+            case "3":
+                import_mannschaft_from_csv()
+            case "4":
+                correct_all_mannschaften_in_dir()
+            case "5":
+                export_single_mannschaft()
+            case "6":
+                export_all_mannschaften()
+            case "end":
+                print(f"""Beende Programm. 
+    {GREEN}Gut Holz!{ENDC}""")
+                exit(0)
+
+
+def correct_all_mannschaften_in_dir():
+    while (name_after_team := input("Datei soll wie Mannschaft heißen? (default=Y): ")) not in ["", "Y",
+                                                                                                "n"]:
+        logging.warning("Ungültige Eingabe. Bitte y(es) oder n(o) eingeben.")
+    name_after_team = name_after_team[0].lower()
+    name_after_team = name_after_team == "" or name_after_team == "y"
+    path = input(r"""Path to folder with Mannschaften files:
+            Default is C:\Control Center Kegeln\Einstellungen\Mannschaften
+            Path:""")
+    path = path if path != "" else DEFAULT_DATA_PATH
+    mannschaften = read_folder_mannschaften(path, True)
+    for mannschaft in mannschaften:
+        if name_after_team:
+            mannschaft.file_name = mannschaft.general_data.name
+        write_mannschaft_file_from_mannschaft_data(mannschaft.file_name, mannschaft)
+    import_new_mannschaften(min_placeholder=3)
+
+
+def import_mannschaft_from_csv():
+    while (((placeholder := input("Minimale Anzahl Platzhalter (default=3): ")).isdigit()
+            and int(placeholder) < 0)
+           or placeholder == ""):
         logging.warning("Ungültige Eingabe. Bitte Zahl eingeben.")
-    match wahl:
-        case "1":
-            create_new_mannschaft()
-        case "2":
-            rewrite_mannschaft()
-        case "3":
-            while (((placeholder := input("Minimale Anzahl Platzhalter (default=3): ")).isdigit()
-                    and int(placeholder) < 0)
-                   or placeholder == ""):
-                logging.warning("Ungültige Eingabe. Bitte Zahl eingeben.")
-            placeholder = int(placeholder) if placeholder != "" else 3
-            import_new_mannschaften(min_placeholder=placeholder)
-        case "4":
-            while (name_after_team := input("Datei soll wie Mannschaft heißen? (default=true): ")) not in ["", "true",
-                                                                                                           "false"]:
-                logging.warning("Ungültige Eingabe. Bitte true oder false eingeben.")
-            name_after_team = name_after_team == "" or name_after_team == "true"
-            mannschaften = read_folder_mannschaften("C:\\Control Center Kegeln\\Einstellungen\\Mannschaften - Kopie",
-                                                    True)
-            for mannschaft in mannschaften:
-                if name_after_team:
-                    mannschaft.file_name = mannschaft.general_data.name
-                write_mannschaft_file_from_mannschaft_data(mannschaft.file_name, mannschaft)
-            import_new_mannschaften(min_placeholder=3)
-        case "end":
-            return
+    placeholder = int(placeholder) if placeholder != "" else 3
+    import_new_mannschaften(min_placeholder=placeholder)
 
 
 if __name__ == '__main__':

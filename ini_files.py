@@ -80,6 +80,9 @@ def get_general_info_str_from_input(name: str) -> str:
     vereinsnummer = input("Vereinsnummer: ")
     lvnummer = input("LV-Nummer: ")
     anzahl_spieler = input("Anzahl Spieler: ")
+    if not anzahl_spieler.isdigit() or int(anzahl_spieler) < 1:
+        logging.warning("Number of players must be greater than 0. Setting to 10")
+        anzahl_spieler = "10"
 
     return f"""[Allgemein]
 Name={name.replace(":", "_").replace("/", "")}
@@ -138,8 +141,8 @@ def read_finished_mannschaften(file: Path) -> MannschaftData:
     general_data = lines[1:10]
     name, spielklasse, liga, bezirk, spielfuehrer, betreuer, vereinsnummer, lvnummer, anzahl_spieler = \
         [line.split("=")[1] for line in general_data]
-    general_data = GeneralData(name, spielklasse, liga,
-                               bezirk, spielfuehrer, betreuer, vereinsnummer, lvnummer, int(anzahl_spieler), "", "")
+    general_data = GeneralData(name, spielklasse, liga, bezirk, spielfuehrer, betreuer, vereinsnummer, lvnummer,
+                               int(anzahl_spieler), "", "")
     # players
     players = []
     for i in range(10, len(lines), 11):
@@ -181,8 +184,8 @@ def write_mannschaft_file_from_mannschaft_data(name: str, mannschaft: Mannschaft
     file_name = name.replace(" ", "_").replace("/", "_")
     if file_name.endswith(".ini"):
         file_name = file_name[:-4]
-    if not Path(f"out").exists():
-        Path(f"out").mkdir()
+    if not Path("out").exists():
+        Path("out").mkdir()
     if Path(f"out/{file_name}.ini").exists():
         logging.warning(f"File {file_name}.ini already exists. Overwriting.")
     with open(f"out/{file_name}.ini", "w", encoding=encoding) as f:
@@ -190,6 +193,7 @@ def write_mannschaft_file_from_mannschaft_data(name: str, mannschaft: Mannschaft
         if platzhalter_am_ende and sort:
             normal_players = [player for player in mannschaft.players if not player.is_platzhalter()]
             platzhalter_player = [player for player in mannschaft.players if player.is_platzhalter()]
+            platzhalter_player = sorted(platzhalter_player, key=lambda x: x.name)
             mannschaft.players = normal_players
             mannschaft.sort()
             mannschaft.players.extend(platzhalter_player)
