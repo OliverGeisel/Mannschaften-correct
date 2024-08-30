@@ -1,4 +1,5 @@
 import logging
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -6,6 +7,34 @@ import pandas as pd
 from date_parsing import date_parsing_from_word_str, date_parsing_from_str
 from exceptions import FileIncompleteError
 from mannschaft import PlayerData, MannschaftData, GeneralData
+
+
+def _correct_str(string: str, with_underscore=None, remove=None, with_space=None) -> str:
+    """
+    Correct a string and replace special characters with underscores, space or remove them.
+    By default, the following characters are replaced with underscores: r"[:/\?<>|\"*]"
+    By default, the following characters are removed: r"[\.]"
+    By default, the following characters are replaced with spaces: r"[\s]+"
+
+    :param string: string to correct
+    :type string:
+    :param with_underscore:  regex pattern to replace special characters with underscores. Default is r"[:/\?<>|\"*]"
+    :type with_underscore: r-string
+    :param remove:  regex pattern to remove special characters. Default is r"[\.]"
+    :type remove:  r-string
+    :param with_space:  regex pattern to replace special characters with spaces. Default is r"[\s]+"
+    :type with_space:  r-string
+    :return:  corrected string
+    :rtype:  str
+    """
+    if string is None:
+        return ""
+    with_underscore = r"[:/\?<>|\"*]" if with_underscore is None else with_underscore
+    remove = r"[\.]" if remove is None else remove
+    with_space = r"[\s]+" if with_space is None else with_space
+    temp = re.sub(with_underscore, "_", string).strip()
+    temp = re.sub(with_space, " ", temp)
+    return re.sub(remove, "", temp)
 
 
 def get_player_str(number: int, player: PlayerData, date_format: str = "%d/%m/%Y") -> str:
@@ -31,7 +60,6 @@ def get_player_str_from_csv(number: int, data: pd.Series) -> str:
     name = data["Nachname"]
     vorname = data["Vorname"]
     date_str = data["Geburtsdatum"]
-
     geburtsjahr = date_parsing_from_word_str(date_str)
     passnummer = data["Passnummer"]
     altersklasse = data["Altersklasse"]
@@ -51,8 +79,10 @@ Verein={verein}
 
 
 def get_general_info_str_from_mannschaft_data(mannschaft: MannschaftData) -> str:
+    name = _correct_str(mannschaft.general_data.name, with_underscore=r"[_]", remove=r"[\n]",
+                        with_space=r"[\s]+|[\|*+]")
     return f"""[Allgemein]
-Name={mannschaft.general_data.name.replace(":", "_").replace("/", "")}
+Name={name}
 Spielklasse={mannschaft.general_data.spielklasse}
 Liga={mannschaft.general_data.liga}
 Bezirk={mannschaft.general_data.bezirk}
@@ -85,7 +115,7 @@ def get_general_info_str_from_input(name: str) -> str:
         anzahl_spieler = "10"
 
     return f"""[Allgemein]
-Name={name.replace(":", "_").replace("/", "")}
+Name={_correct_str(name)}
 Spielklasse={spielklasse}
 Liga={liga}
 Bezirk={bezirk}
@@ -181,7 +211,7 @@ def write_mannschaft_file_from_mannschaft_data(name: str, mannschaft: Mannschaft
     :return: nothing
     :rtype: None
     """
-    file_name = name.replace(" ", "_").replace("/", "_")
+    file_name = _correct_str(name)
     if file_name.endswith(".ini"):
         file_name = file_name[:-4]
     if not Path("out").exists():

@@ -19,6 +19,7 @@ ENDC = "\033[0m"
 
 DEFAULT_DATA_PATH = r"C:\Control Center Kegeln\Einstellungen\Mannschaften"
 
+
 def load_mannschaften_csv(sep=";") -> pd.DataFrame:
     return read_csv(sep=sep)
 
@@ -218,9 +219,9 @@ def import_new_mannschaften(num_min_players: int = 10, min_placeholder: int = 0,
 
     for index, s_row in spieler_csv.iterrows():
         verein = s_row["Verein"]
-        spieler_mannschaft = s_row["Mannschaft"]
+        spieler_mannschaft = s_row["Mannschaft"] if not pd.isna(s_row["Mannschaft"]) else ""
         for m_index, m_row in mannschaften_csv.iterrows():
-            mannschaft = m_row["Mannschaft"]
+            mannschaft = m_row["Mannschaft"] if not pd.isna(m_row["Mannschaft"]) else ""
             if m_row["Verein"] == verein and mannschaft == spieler_mannschaft:
                 if verein not in vereins_map:
                     vereins_map[verein] = dict()
@@ -330,6 +331,30 @@ def export_all_mannschaften():
         logging.error("Abbruch. Keine Mannschaften gefunden.")
 
 
+def correct_all_mannschaften_in_dir():
+    while (name_after_team := input("Datei soll wie Mannschaft heißen? (default=Y): ")) not in ["", "Y", "n"]:
+        logging.warning("Ungültige Eingabe. Bitte y(es) oder n(o) eingeben.")
+    name_after_team = name_after_team[0].lower()
+    name_after_team = name_after_team == "" or name_after_team == "y"
+    path = input(r"""Path to folder with Mannschaften files:
+            Default is C:\Control Center Kegeln\Einstellungen\Mannschaften
+            Path:""")
+    path = path if path != "" else DEFAULT_DATA_PATH
+    mannschaften = read_folder_mannschaften(path, True)
+    for mannschaft in mannschaften:
+        if name_after_team:
+            mannschaft.file_name = mannschaft.general_data.name
+        write_mannschaft_file_from_mannschaft_data(mannschaft.file_name, mannschaft)
+    import_new_mannschaften(min_placeholder=3)
+
+
+def import_mannschaft_from_csv():
+    while (placeholder := input("Minimale Anzahl Platzhalter (default=3): ")).isdigit() and int(placeholder) < 0:
+        logging.warning("Ungültige Eingabe. Bitte Zahl eingeben.")
+    placeholder = int(placeholder) if placeholder != "" else 3
+    import_new_mannschaften(min_placeholder=placeholder)
+
+
 def cli_handle():
     print(f"""Mannschaften-KorrekturSystem ({BLUE}MKS{ENDC})
 {GREEN}===================================={ENDC}""")
@@ -353,33 +378,6 @@ def cli_handle():
                 print(f"""Beende Programm. 
     {GREEN}Gut Holz!{ENDC}""")
                 exit(0)
-
-
-def correct_all_mannschaften_in_dir():
-    while (name_after_team := input("Datei soll wie Mannschaft heißen? (default=Y): ")) not in ["", "Y",
-                                                                                                "n"]:
-        logging.warning("Ungültige Eingabe. Bitte y(es) oder n(o) eingeben.")
-    name_after_team = name_after_team[0].lower()
-    name_after_team = name_after_team == "" or name_after_team == "y"
-    path = input(r"""Path to folder with Mannschaften files:
-            Default is C:\Control Center Kegeln\Einstellungen\Mannschaften
-            Path:""")
-    path = path if path != "" else DEFAULT_DATA_PATH
-    mannschaften = read_folder_mannschaften(path, True)
-    for mannschaft in mannschaften:
-        if name_after_team:
-            mannschaft.file_name = mannschaft.general_data.name
-        write_mannschaft_file_from_mannschaft_data(mannschaft.file_name, mannschaft)
-    import_new_mannschaften(min_placeholder=3)
-
-
-def import_mannschaft_from_csv():
-    while (((placeholder := input("Minimale Anzahl Platzhalter (default=3): ")).isdigit()
-            and int(placeholder) < 0)
-           or placeholder == ""):
-        logging.warning("Ungültige Eingabe. Bitte Zahl eingeben.")
-    placeholder = int(placeholder) if placeholder != "" else 3
-    import_new_mannschaften(min_placeholder=placeholder)
 
 
 if __name__ == '__main__':

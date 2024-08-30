@@ -47,6 +47,9 @@ class PlayerData:
         try:
             date_str = row["Geburtsdatum"]
             geburtsjahr = date_parsing_from_word_str(date_str)
+            verein_show = row[VEREIN_ANGEH]
+            if not isinstance(verein_show, str) and pd.isna(verein_show):
+                verein_show = ""
             player = PlayerData(
                 name=row["Name"],
                 vorname=row["Vorname"],
@@ -59,7 +62,7 @@ class PlayerData:
                 else row["Passnummer"],
                 rangliste="",
                 verein=row["Verein"],
-                verein_show=row["Verein_angehörig"]
+                verein_show=verein_show
             )
         except ValueError:
             raise ValueError(f"Could not parse date {row['Geburtsdatum']} for player {row['Name']} {row['Vorname']}")
