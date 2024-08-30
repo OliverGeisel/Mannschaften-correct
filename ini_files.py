@@ -1,3 +1,4 @@
+import datetime
 import logging
 import re
 from pathlib import Path
@@ -40,13 +41,18 @@ def _correct_str(string: str, with_underscore=None, remove=None, with_space=None
 def get_player_str(number: int, player: PlayerData, date_format: str = "%d/%m/%Y") -> str:
     if not player.valid:
         raise ValueError("Player is not valid")
+    geburtsjahr = player.geburtsjahr
+    geburtsjahr_str = player.geburtsjahr.strftime(date_format) if geburtsjahr is not None else ""
+    if geburtsjahr is not None and geburtsjahr >= datetime.date(2000, 1, 1):
+        logging.info(f"Date of birth for player {player.name} {player.vorname} is after 2000. Write complete.")
+        geburtsjahr_str = geburtsjahr.strftime("%m/%Y")
     return f"""[Spieler {number}]
 Name={player.name}
 Vorname={player.vorname}
 Letztes Spiel={player.letztes_spiel}
 Platz-Ziffer={player.platz_ziffer}
 Spielernr.={player.spielernr}
-Geb.-Jahr={player.geburtsjahr.strftime(date_format) if player.geburtsjahr is not None else ""}
+Geb.-Jahr={geburtsjahr_str}
 Altersklasse={player.altersklasse}
 Pass-Nr.={player.passnummer}
 Rangliste={player.rangliste}
@@ -60,17 +66,21 @@ def get_player_str_from_csv(number: int, data: pd.Series) -> str:
     name = data["Nachname"]
     vorname = data["Vorname"]
     date_str = data["Geburtsdatum"]
-    geburtsjahr = date_parsing_from_word_str(date_str)
+    geburtsjahr: datetime.date = date_parsing_from_word_str(date_str)
     passnummer = data["Passnummer"]
     altersklasse = data["Altersklasse"]
     verein = data["Verein"] if data["Verein_angezeigt"] == "" else data["Verein_angezeigt"]
+    geburtsjahr_str = geburtsjahr.strftime("%d/%m/%Y") if geburtsjahr is not None else ""
+    if geburtsjahr is not None and geburtsjahr >= datetime.date(2000, 1, 1):
+        logging.info(f"Date of birth for player {name} {vorname} is after 2000. Write complete.")
+        geburtsjahr_str = geburtsjahr.strftime("%d/%m/%YYYY")
     return f"""[Spieler {number}]
 Name={name}
 Vorname={vorname}
 Letztes Spiel=
 Platz-Ziffer=
 Spielernr.=
-Geb.-Jahr={geburtsjahr.strftime("%d/%m/%Y") if geburtsjahr is not None else ""}
+Geb.-Jahr={geburtsjahr_str}
 Altersklasse={altersklasse}
 Pass-Nr.={passnummer}
 Rangliste=
