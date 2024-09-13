@@ -89,7 +89,7 @@ Verein={verein}
 
 
 def get_general_info_str_from_mannschaft_data(mannschaft: MannschaftData) -> str:
-    name = _correct_str(mannschaft.general_data.name, with_underscore=r"[_]", remove=r"[\n]",
+    name = _correct_str(mannschaft.general_data.name, with_underscore=r"[_/]", remove=r"[\n]",
                         with_space=r"[\s]+|[\|*+]")
     return f"""[Allgemein]
 Name={name}
