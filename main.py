@@ -1,5 +1,4 @@
 import logging
-import pathlib
 from pathlib import Path
 
 import pandas as pd
@@ -58,22 +57,26 @@ def read_folder_mannschaften(folder_name: str, print_teams: bool = False) -> lis
 
 
 def write_mannschaft_file_input(file_name: str, csv_name: str = "Mannschaften",
-                                sort: bool = True, encoding="utf-8", date_format="%m/%y") -> None:
+                                sort: bool = True, encoding="utf-8", date_format="%m/%y", prefix=None) -> None:
+    out_dir = Path("out")
     if file_name.endswith(".ini"):
         file_name = file_name[:-4]
-    if not Path("out").exists():
-        Path("out").mkdir()
-    if Path(f"out/{file_name}.ini").exists():
+    if not out_dir.exists():
+        out_dir.mkdir()
+    if prefix is not None:
+        file_name = f"{prefix} {file_name}"
+    target_path = out_dir.joinpath(f"{file_name}.ini")
+    if target_path.exists():
         logging.warning(f"File {file_name}.ini already exists. Overwriting?")
         response = input("Will you continue? Otherwise press 'n' and enter\n")
         if response.lower() == "n":
             return
-    with open(f"out/{file_name}.ini", "w", encoding=encoding) as file:
+    with open(target_path, "w", encoding=encoding) as file:
         general_info = get_general_info_str_from_input(file_name)
         anzahl_spieler = int(general_info.splitlines()[9].split("=")[1])
         file.write(general_info)
         players: list = []
-        if not pathlib.Path(f"{csv_name}.csv").exists():
+        if not Path(f"{csv_name}.csv").exists():
             logging.error(f"File {csv_name}.csv does not exist. All players will be Platzhalter players")
         else:
             players = iter_csv_player(anzahl_spieler, csv_name, date_format, file, sort)
@@ -200,7 +203,8 @@ def import_single_mannschaft(vereins_name: str, mannschaft_name: str, num_min_pl
     write_mannschaft_file_from_mannschaft_data(mannschaft.file_name, mannschaft)
 
 
-def import_new_mannschaften(num_min_players: int = 10, min_placeholder: int = 0, encoding="windows-1252") -> None:
+def import_new_mannschaften(num_min_players: int = 10, min_placeholder: int = 0, encoding="windows-1252",
+                            sort=True) -> None:
     """
     Use this function to import all Mannschaften from the csv files. The csv files must be in the same folder as this
     script and must be named "Mannschaften.csv" and "Spieler.csv".
@@ -251,7 +255,7 @@ def import_new_mannschaften(num_min_players: int = 10, min_placeholder: int = 0,
     # write files
     for verein in vereine:
         for mannschaft in verein.mannschaften:
-            write_mannschaft_file_from_mannschaft_data(mannschaft.file_name, mannschaft, encoding=encoding)
+            write_mannschaft_file_from_mannschaft_data(mannschaft.file_name, mannschaft, encoding=encoding, sort=sort)
 
 
 def map_to_internal_representation(vereine: list[VereinsData],
@@ -351,8 +355,9 @@ def correct_all_mannschaften_in_dir():
 def import_mannschaft_from_csv():
     while (placeholder := input("Minimale Anzahl Platzhalter (default=3): ")).isdigit() and int(placeholder) < 0:
         logging.warning("Ungültige Eingabe. Bitte Zahl eingeben.")
+    sort = input("Sortieren? (default=Y): ") in ["", "Y", "y"]
     placeholder = int(placeholder) if placeholder != "" else 3
-    import_new_mannschaften(min_placeholder=placeholder)
+    import_new_mannschaften(min_placeholder=placeholder, sort=sort)
 
 
 def cli_handle():

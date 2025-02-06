@@ -22,7 +22,7 @@ class PlayerData:
         self.__platz_ziffer = platz_ziffer.strip()
         self.__spielernr = spielernr.strip()
         self.__geburtsjahr = geburtsjahr
-        self.__altersklasse = altersklasse.strip()
+        self.__altersklasse = altersklasse.strip() if type(altersklasse) == str else ""
         self.__passnummer = passnummer.strip()
         self.__rangliste = rangliste.strip()
         self.__verein = verein.strip()
